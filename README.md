@@ -5,6 +5,8 @@
 - **스택**: Next.js 16 (App Router) + TypeScript + Tailwind CSS (shadcn 스타일 컴포넌트) + Supabase
 - **페이지**: 퀴즈(타이핑 → 정답 확인 → 모름/애매/정답 체크) · 복습 노트(상태별 필터) · 문항 수정(지문/정답 편집) · 로그인
 - **동기화**: 체크 기록·수정 내역·마지막 위치가 모두 Supabase DB에 저장되어 폰/PC 어디서나 이어짐
+- **다중 사용자**: 체크 기록(`marks`)과 마지막 위치(`app_state`)는 **계정별로 분리**된다.
+  문항 원본(`questions`)은 공유되므로 수정 페이지에서 지문/정답을 고치면 모든 사용자에게 반영된다.
 
 ---
 
@@ -18,10 +20,13 @@
 4. 이어서 `supabase/seed.sql` 내용을 붙여넣고 **Run** → 405문항 입력
    - Table Editor에서 `questions` 테이블에 405행이 보이면 성공
 
-### 2. 로그인 계정 만들기 (1개만)
+### 2. 로그인 계정 만들기 (쓸 사람 수만큼)
 
 1. 좌측 **Authentication → Users → Add user → Create new user**
 2. 사용할 이메일/비밀번호 입력, **Auto Confirm User 체크** 후 생성
+   - 여러 명이 쓴다면 사람마다 하나씩 만들면 된다. 체크 기록과 마지막 위치는 계정별로 분리되어 저장된다.
+   - **Invite user는 쓰지 말 것.** 초대 링크를 받아 비밀번호를 설정하는 화면이 앱에 없어서(콜백 라우트 미구현)
+     초대받은 사람은 로그인할 수 없다. 반드시 Create new user로 비밀번호까지 정해서 알려줄 것.
 3. **중요**: Authentication → Sign In / Providers 설정에서 **"Allow new users to sign up"을 꺼주세요.**
    (남이 주소를 알아내도 계정을 만들 수 없게 막는 설정)
 
@@ -74,8 +79,16 @@ app/
   edit/page.tsx     # 문항 수정
   login/page.tsx    # 로그인
 components/         # Nav + shadcn 스타일 UI
-lib/supabase/       # 클라이언트/미들웨어 (세션 가드)
+lib/supabase/       # 클라이언트/세션 가드
+proxy.ts            # 인증 게이트 (Next.js 16의 middleware 후신)
 supabase/
-  schema.sql        # 테이블 + RLS
+  schema.sql        # 테이블 + RLS (신규 프로젝트용)
   seed.sql          # 405문항 시드
+  migrations/       # 이미 만든 프로젝트에 적용하는 변경분
 ```
+
+## 기존 프로젝트 마이그레이션
+
+단일 사용자 버전 `schema.sql`로 이미 테이블을 만든 프로젝트라면, SQL Editor에서
+`supabase/migrations/001_per_user_progress.sql`을 실행해 체크 기록을 계정별로 분리한다.
+기존 `marks` / `app_state` 기록이 남아 있으면 중단되도록 안전장치가 걸려 있다.

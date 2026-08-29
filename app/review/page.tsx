@@ -32,13 +32,16 @@ export default function ReviewPage() {
   const [section, setSection] = useState<string>("all");
   const [openAnswers, setOpenAnswers] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [{ data: qs }, { data: ms }] = await Promise.all([
+      const [{ data: qs }, { data: ms }, { data: auth }] = await Promise.all([
         supabase.from("questions").select("*").order("id"),
         supabase.from("marks").select("*"),
+        supabase.auth.getUser(),
       ]);
+      setUserId(auth.user?.id ?? null);
       setQuestions((qs as Question[]) ?? []);
       const m: Record<number, MarkStatus> = {};
       (ms ?? []).forEach((r: { question_id: number; status: MarkStatus }) => {
@@ -50,6 +53,7 @@ export default function ReviewPage() {
   }, [supabase]);
 
   async function setMark(qid: number, status: MarkStatus) {
+    if (!userId) return;
     const prev = marks[qid];
     if (prev === status) {
       setMarks((m) => {
@@ -62,7 +66,15 @@ export default function ReviewPage() {
       setMarks((m) => ({ ...m, [qid]: status }));
       await supabase
         .from("marks")
-        .upsert({ question_id: qid, status, updated_at: new Date().toISOString() });
+        .upsert(
+          {
+            user_id: userId,
+            question_id: qid,
+            status,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,question_id" }
+        );
     }
   }
 
