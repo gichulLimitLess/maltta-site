@@ -23,6 +23,7 @@ function QuizInner() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [marks, setMarks] = useState<Record<number, MarkStatus>>({});
+  const [userId, setUserId] = useState<string | null>(null);
   const [section, setSection] = useState<string>("all");
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -33,11 +34,13 @@ function QuizInner() {
   // 데이터 로드
   useEffect(() => {
     (async () => {
-      const [{ data: qs }, { data: ms }, { data: st }] = await Promise.all([
+      const [{ data: qs }, { data: ms }, { data: st }, { data: auth }] = await Promise.all([
         supabase.from("questions").select("*").order("id"),
         supabase.from("marks").select("*"),
         supabase.from("app_state").select("*").eq("key", "position").maybeSingle(),
+        supabase.auth.getUser(),
       ]);
+      setUserId(auth.user?.id ?? null);
       setQuestions((qs as Question[]) ?? []);
       const m: Record<number, MarkStatus> = {};
       (ms ?? []).forEach((r: { question_id: number; status: MarkStatus }) => {
@@ -77,15 +80,23 @@ function QuizInner() {
 
   // 위치 자동 저장 (디바운스)
   useEffect(() => {
-    if (loading) return;
+    if (loading || !userId) return;
     const t = setTimeout(() => {
       supabase
         .from("app_state")
-        .upsert({ key: "position", value: { section, idx }, updated_at: new Date().toISOString() })
+        .upsert(
+          {
+            user_id: userId,
+            key: "position",
+            value: { section, idx },
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,key" }
+        )
         .then(() => {});
     }, 600);
     return () => clearTimeout(t);
-  }, [section, idx, loading, supabase]);
+  }, [section, idx, loading, supabase, userId]);
 
   const move = useCallback(
     (d: number) => {
@@ -108,7 +119,7 @@ function QuizInner() {
   }, [move]);
 
   async function toggleMark(status: MarkStatus) {
-    if (!cur) return;
+    if (!cur || !userId) return;
     const prev = marks[cur.id];
     if (prev === status) {
       setMarks((m) => {
@@ -121,7 +132,15 @@ function QuizInner() {
       setMarks((m) => ({ ...m, [cur.id]: status }));
       await supabase
         .from("marks")
-        .upsert({ question_id: cur.id, status, updated_at: new Date().toISOString() });
+        .upsert(
+          {
+            user_id: userId,
+            question_id: cur.id,
+            status,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,question_id" }
+        );
     }
   }
 
