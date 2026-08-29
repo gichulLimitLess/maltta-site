@@ -2,7 +2,7 @@
 
 토목기사 실기 용어 서술형("말따먹기") 405문항 암기용 개인 사이트.
 
-- **스택**: Next.js 15 (App Router) + TypeScript + Tailwind CSS (shadcn 스타일 컴포넌트) + Supabase
+- **스택**: Next.js 16 (App Router) + TypeScript + Tailwind CSS (shadcn 스타일 컴포넌트) + Supabase
 - **페이지**: 퀴즈(타이핑 → 정답 확인 → 모름/애매/정답 체크) · 복습 노트(상태별 필터) · 문항 수정(지문/정답 편집) · 로그인
 - **동기화**: 체크 기록·수정 내역·마지막 위치가 모두 Supabase DB에 저장되어 폰/PC 어디서나 이어짐
 
@@ -49,6 +49,8 @@
 ---
 
 ## 로컬 개발
+
+> Node.js **20.9 이상** 필요 (Next.js 16 요구사항)
 
 ```bash
 cp .env.example .env.local   # 값 채우기
